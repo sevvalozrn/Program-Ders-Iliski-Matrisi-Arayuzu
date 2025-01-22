@@ -643,7 +643,7 @@ def on_row_select(event, frame, tree, student_no, l_id):
         non_empty_values1 = [str(value) for value in df1.iloc[0].values if pd.notnull(value)]
         header_label_text1 = " ".join(non_empty_values1)
         header_label1 = Label(frame, text=header_label_text1, font=("Arial", 12, "bold"))
-        header_label1.place(x=10, y=210)
+        header_label1.place(x=10, y=200)
 
     if len(df1) > 1:
         columns1 = list(df1.iloc[1].values)
@@ -662,7 +662,7 @@ def on_row_select(event, frame, tree, student_no, l_id):
 
     row_height = 20
     total_height = (len(data1) + 4) * row_height
-    table4.place(x=10, y=240, height=total_height)
+    table4.place(x=10, y=230, height=total_height)
 
     # İkinci tabloyu (table5) yükle
     df2 = pd.read_excel(file_path2, sheet_name=lesson_name, header=None)
@@ -712,6 +712,26 @@ def on_row_select(event, frame, tree, student_no, l_id):
     total_height2 = (len(data2) + 4) * row_height
     table5.place(x=10, y=500, height=total_height2)
 
+
+def validate_input(value):
+    try:
+        numeric_value = float(value)
+        if 0 <= numeric_value <= 1:
+            return True
+        else:
+            messagebox.showerror("Geçersiz Değer", "Değer 0 ile 1 arasında olmalıdır.")
+            return False
+    except ValueError:
+        messagebox.showerror("Geçersiz Giriş", "Lütfen bir sayı giriniz.")
+        return False
+
+# İliski Ekleme
+def insert_relation_value(program_outcome_id, course_outcome_id, relation_value, lesson_id):
+
+    if not validate_input(relation_value):
+        return
+
+    conn = get_connection("RelationMatrix")
 
 def get_data_from_table_with_filter(table_name, l_id):
     conn = get_connection("RelationMatrix")
@@ -871,12 +891,26 @@ def del_from_table(table_name, id, lesson_id, frame):
 def show_frame1():
     frame1.tkraise()
 
+def validate_input(value):
+    try:
+        numeric_value = float(value)
+        if 0 <= numeric_value <= 1:
+            return True
+        else:
+            messagebox.showerror("Geçersiz Değer", "Değer 0 ile 1 arasında olmalıdır.")
+            return False
+    except ValueError:
+        messagebox.showerror("Geçersiz Giriş", "Lütfen bir sayı giriniz.")
+        return False
+
 
 # İliski Ekleme
 def insert_relation_value(program_outcome_id, course_outcome_id, relation_value, lesson_id):
     conn = get_connection("RelationMatrix")
     conn.autocommit = True
     cursor = conn.cursor()
+    if not validate_input(relation_value):
+        return
 
     cursor.execute('''
         INSERT INTO ProgramCourseRelations (ProgramOutcomeID, CourseOutcomeID, RelationValue, LessonID)
@@ -1395,7 +1429,7 @@ def show_other_frames(targetf, frame2, selected_id):
     elif targetf == 7:
         frame7 = Frame(frame2)
         show_other_frames.active_frames.append(frame7)
-        frame7_title = Label(frame7, text="Değerlendirme kriterleri ve ağırlıkları giriş ekranı", font=("Arial", 12))
+        frame7_title = Label(frame7, text="Değerlendirme Kriterleri ve Ağırlıkları Giriş Ekranı", font=("Arial", 12))
         frame7_title.place(x=0, y=10)
 
         kri_frame = Frame(frame7)
@@ -1457,58 +1491,7 @@ def show_other_frames(targetf, frame2, selected_id):
                             VALUES (?, ?, ?);
                         ''', lesson_id, criterion, weight)
 
-            save_data_to_students(criteria_data)
             create_table3()
-            conn.close()
-
-        def save_data_to_students(criteria_data):
-
-            conn = get_connection("RelationMatrix")
-            conn.autocommit = True
-            cursor = conn.cursor()
-
-            # Verileri filtrele ve kriter listesi oluştur
-            data = [(int(entry[0]), entry[1].get(), int(entry[2].get()))
-                    for entry in criteria_data if entry[1].get() and entry[2].get()]
-
-            # Tüm lesson_id'leri al
-            lesson_ids = {entry[0] for entry in data}
-
-            # Sütunları ekle
-            for _, criterion, _ in data:
-                try:
-                    column_name = criterion
-                    cursor.execute(f"""
-                        IF NOT EXISTS (
-                            SELECT 1
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_NAME = 'Students' AND COLUMN_NAME = '{column_name}'
-                        )
-                        BEGIN
-                            ALTER TABLE Students ADD [{column_name}] FLOAT;
-                        END;
-                    """)
-                except Exception as e:
-                    print(f"Sütun ekleme hatası: {criterion}, Hata: {e}")
-
-            # lesson_id'leri Students tablosuna ekle
-            for lesson_id in lesson_ids:
-                try:
-                    cursor.execute('''
-                        IF NOT EXISTS (
-                            SELECT 1 FROM Students WHERE lesson_id = ?
-                        )
-                        BEGIN
-                            INSERT INTO Students (lesson_id) VALUES (?);
-                        END;
-                    ''', lesson_id, lesson_id)
-                except Exception as e:
-                    print(f"LessonID ekleme hatası: {lesson_id}, Hata: {e}")
-
-            print("Kriterler ve LessonID'ler Students tablosuna başarıyla eklendi.")
-            create_table4()
-            create_notes()
-            create_table5()
             conn.close()
 
         dk_count = Label(kri_frame, text="Kaç Adet Değerlendirme Kriteri girilecek?.(Minimum 5 olmalı.)",
@@ -1619,12 +1602,17 @@ def show_other_frames(targetf, frame2, selected_id):
         conn.autocommit = True
         cursor = conn.cursor()
 
+        if not validate_input(relation_value):
+            return
+
         cursor.execute('''
             INSERT INTO CourseEvaluationRelations (CourseOutcomeID, Criteria, RelationValue, LessonID)
             VALUES (?, ?, ?, ?);
         ''', course_outcome_id, criteria, relation_value, lesson_id)
 
         conn.close()
+
+     
 
     def save_data(no_entry, kriter_var_list, criteria_list, frame8):
         # Extract student number and lesson ID
@@ -1677,12 +1665,10 @@ def show_other_frames(targetf, frame2, selected_id):
         finally:
             conn.close()
 
-
 check_database()
 check_tables()
-create_table1()
-create_table2()
-create_table3()
+create_table4()
 create_notes()
+create_table5()
 frame1.tkraise()
 root.mainloop()
